@@ -79,6 +79,16 @@ class RbStory < Issue
       return RbStory.backlog(options.merge(:sprint_id => sprint.id))
     end
 
+    def self.backlogs_by_sprint(project, sprints, options={})
+        ret = RbStory.backlog(project.id, sprints.map {|s| s.id }, options)
+        sprint_of = {}
+        ret.each do |backlog|
+            sprint_of[backlog.fixed_version_id] ||= []
+            sprint_of[backlog.fixed_version_id].push(backlog)
+        end
+        return sprint_of
+    end
+
     def self.stories_open(project)
       stories = []
 
