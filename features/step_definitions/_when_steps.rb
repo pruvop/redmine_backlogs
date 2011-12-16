@@ -63,7 +63,7 @@ When /^I (try to )?move the story named (.+) (up|down) to the (\d+)(?:st|nd|rd|t
 end
 
 When /^I (try to )?move the (\d+)(?:st|nd|rd|th) story to the (\d+|last)(?:st|nd|rd|th)? position$/ do |attempt, old_pos, new_pos|
-  @story_ids = page.all(:css, "#product_backlog_container .stories .story .id")
+  @story_ids = page.all(:css, "#product_backlog_container .stories .story .id .v")
 
   story = @story_ids[old_pos.to_i-1]
   story.should_not == nil
