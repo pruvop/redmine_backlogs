@@ -72,7 +72,7 @@ Redmine::Plugin.register :redmine_backlogs do
                                         :rb_sprints          => [:index, :show, :download],
                                         :rb_wikis            => :show,
                                         :rb_stories          => [:index, :show],
-                                        :rb_server_variables => :show,
+                                        :rb_server_variables => [:project, :sprint],
                                         :rb_all_projects     => :server_variables,
                                         :rb_burndown_charts  => [:embedded, :show, :print],
                                         :rb_updated_items    => :show
@@ -85,7 +85,7 @@ Redmine::Plugin.register :redmine_backlogs do
                                         :rb_tasks            => [:index, :show],
                                         :rb_impediments      => [:index, :show],
                                         :rb_wikis            => :show,
-                                        :rb_server_variables => :show,
+                                        :rb_server_variables => [:project, :sprint],
                                         :rb_all_projects     => :server_variables,
                                         :rb_hooks_render     => [:view_issues_sidebar],
                                         :rb_burndown_charts  => [:embedded, :show, :print],
@@ -126,5 +126,5 @@ Redmine::Plugin.register :redmine_backlogs do
 
   menu :project_menu, :rb_master_backlogs, { :controller => :rb_master_backlogs, :action => :show }, :caption => :label_backlogs, :after => :issues, :param => :project_id, :if => Proc.new { Backlogs.configured? }
   menu :project_menu, :rb_releases, { :controller => :rb_releases, :action => :index }, :caption => :label_release_plural, :after => :rb_master_backlogs, :param => :project_id, :if => Proc.new { Backlogs.configured? }
-  menu :application_menu, :rb_statistics, { :controller => :rb_all_projects, :action => :statistics}, :caption => :label_scrum_statistics, :if => Proc.new {|| User.current.allowed_to?({:controller => :rb_all_projects, :action => :statistics}, nil, :global => true) }, :if => Proc.new { Backlogs.configured? }
+  menu :application_menu, :rb_statistics, { :controller => :rb_all_projects, :action => :statistics}, :caption => :label_scrum_statistics, :if => Proc.new { Backlogs.configured? && User.current.allowed_to?({:controller => :rb_all_projects, :action => :statistics}, nil, :global => true) }
 end
