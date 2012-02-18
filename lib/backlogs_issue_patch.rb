@@ -146,13 +146,15 @@ module Backlogs
             case Backlogs.platform 
               when :redmine
                 j.created_on = Time.now
+                j.details << JournalDetail.new(:property => 'attr', :prop_key => 'fixed_version_id', :old_value => task.fixed_version_id, :value => fixed_version_id)
               when :chiliproject
                 j.created_at = Time.now
+                j.details = {'fixed_version_id' => [task.fixed_version_id, fixed_version_id]}
             end
             j.user = User.current
-            j.details << JournalDetail.new(:property => 'attr', :prop_key => 'fixed_version_id', :old_value => task.fixed_version_id, :value => fixed_version_id)
             j.save!
           }
+
           connection.execute("update issues set tracker_id = #{RbTask.tracker}, fixed_version_id = #{connection.quote(fixed_version_id)} where root_id = #{self.root_id} and lft > #{self.lft} and rgt < #{self.rgt}")
 
           # safe to do by sql since we don't want any of this logged
@@ -178,6 +180,7 @@ module Backlogs
       end
 
       def history(property, days)
+        days = days.to_a
         created_day = created_on.to_date
         active_days = days.select{|d| d >= created_day}
 
@@ -190,91 +193,105 @@ module Backlogs
         # add one extra day as end-of-last-day
         active_days << (active_days[-1] + 1)
 
-        values = [nil] * active_days.size
+        if !RbJournal.exists?(:issue_id => self.id, :property => property, :start_time => self.created_on) || !RbJournal.exists?(:issue_id => self.id, :property => property, :end_time => self.updated_on)
+          prop = [:status_success, :status_open].include?(property) ? :status_id : property
 
-        property_s = property.to_s
-        case Backlogs.platform 
-          when :redmine
-            changes = JournalDetail.find(:all, :order => "journals.created_on asc" , :joins => :journal,
-                                    :conditions => ["property = 'attr' and prop_key = '#{property}'
+          case Backlogs.platform
+            when :redmine
+              changes = JournalDetail.find(:all, :order => "journals.created_on asc" , :joins => :journal,
+                                                 :conditions => ["property = 'attr' and prop_key = ?
                                                       and journalized_type = 'Issue' and journalized_id = ?",
-                                                      id]).collect {|detail|
-              [detail.journal.created_on.to_date, detail.old_value, detail.value]
-            }
-          when :chiliproject
-            # the chiliproject changelog is screwed up beyond all reckoning...
-            # a truly horrid journals design -- worse than RMs, and that takes some doing
-            # I know this should be using activerecord introspection, but someone else will have to go
-            # rummaging through the docs for self.class.reflect_on_association et al.
-            table = case property
-              when :status_id then 'issue_statuses'
-              else nil
-            end
+                                                      prop.to_s, self.id]).collect {|detail|
+                {:time => detail.journal.created_on, :old => detail.old_value, :new => detail.value}
+              }
+              
+            when :chiliproject
+              # the chiliproject changelog is screwed up beyond all reckoning...
+              # a truly horrid journals design -- worse than RMs, and that takes some doing
+              # I know this should be using activerecord introspection, but someone else will have to go
+              # rummaging through the docs for self.class.reflect_on_association et al.
+              table = case prop
+                when :status_id then 'issue_statuses'
+                else nil
+              end
 
-            valid_ids = table ? RbStory.connection.select_values("select id from #{table}").collect{|x| x.to_i} : nil
-            changes = self.journals.reject{|j| j.created_at < self.created_on || j.changes[property_s].nil?}.collect{|j|
-              delta = valid_ids ? j.changes[property_s].collect{|v| valid_ids.include?(v) ? v : nil} : j.changes[property_s]
-              [j.created_at.to_date] + delta
-            }
-        end
-
-        journals = false
-        changes.each{|change|
-          date, before, after = *change
-
-          # if this is the first journal, fill up with initial old_value
-          values.fill(before) unless values[0]
-
-          # get the date from which this value is current up to now, and fill the remainder (might be overwritten later)
-          if date < active_days[0]
-            i = 0
-          else
-            i = active_days.index{|d| d > date}
+              valid_ids = table ? RbStory.connection.select_values("select id from #{table}").collect{|x| x.to_i} : nil
+              changes = self.journals.reject{|j| j.created_at < self.created_on || j.changes[property_s].nil?}.collect{|j|
+                delta = valid_ids ? j.changes[property_s].collect{|v| valid_ids.include?(v) ? v : nil} : j.changes[property_s]
+                {:time => j.created_at, :old => delta[0], :new => delta[1]}
+              }
           end
 
-          journals = true
-          values.fill(after, i) if i
-        }
+          issue_status = {}
+          if [:status_success, :status_open].include?(property)
+            changes.each{|change|
+              [:old, :new].each{|k|
+                status_id = change[k]
+                next if status_id.nil?
 
-        # if no journals was found, the current value is what all the days have
-        if journals
-          values[-1] = send(property)
-        else
-          # otherwise, just set the last day to whatever the current value is.
-          # I _know_ this isn't entirely right, and could just be skipped and it would be the real truth,
-          # but fact of the matter is people don't update the stories/tasks exactly on the last day of the sprint;
-          # often, it happens just after. This makes the burndown look OK. You shouldn't be re-using tasks/stories
-          # over sprints anyhow.
-          values.fill(send(property))
+                if issue_status[status_id].nil?
+                  case property
+                    when :status_open
+                      issue_status[status_id] = !(IssueStatus.find(status_id).is_closed?)
+                    when :status_success
+                      issue_status[status_id] = !!(IssueStatus.find(status_id).backlog_is?(:success))
+                  end
+                end
+
+                change[k] = issue_status[status_id]
+              }
+            }
+          end
+
+          RbJournal.destroy_all(:issue_id => self.id, :property => property)
+
+          changes.each_with_index{|change, i|
+            j = RbJournal.new(:issue_id => self.id, :property => property, :value => change[:old])
+
+            if i == 0
+              j.start_time = self.created_on
+            else
+              j.start_time = changes[i-1][:time]
+            end
+
+            if i == changes.size - 1
+              j.end_time = self.updated_on
+            else
+              j.end_time = change[:time]
+            end
+
+            j.save
+          }
         end
+
+        changes = RbJournal.find(:all,
+                    :conditions => ['issue_id = ? and property = ? and (start_time between ? and ? or end_time between ? and ?)',
+                                    self.id, property, active_days[0].to_time, active_days[-1].to_time, active_days[0].to_time, active_days[-1].to_time],
+                    :order => 'start_time')
+
+        current_value = case property
+          when :status_open
+            !self.status.is_closed?
+          when :status_success
+            self.status.backlog_is?(:success)
+          else
+            self.send(property)
+          end
+
+        values = [(changes.size > 0 ? changes[0].value : current_value)] * active_days.size
+
+        changes.each{|change|
+          day = active_days.index{|d| d.to_time >= change.start_time}
+          next unless day.nil?
+          values.fill(change.value, day)
+        }
 
         # ignore the start-of-day value for issues created mid-sprint
         values[0] = nil if created_day > days[0]
 
-        values = prefix + values
-
-        # and convert to the proper type (the journal holds only strings)
-
-        @@backlogs_column_type ||= {}
-        @@backlogs_column_type[property] ||= Issue.connection.columns(Issue.table_name).select{|c| c.name == "#{property}"}.collect{|c| c.type}[0]
-
-        return values.collect{|v|
-          if v.nil?
-            v
-          else
-            case @@backlogs_column_type[property]
-              when :integer
-                v.blank? ? nil : Integer(v)
-              when :float
-                v.blank? ? nil : Float(v)
-              when :string
-                v.to_s
-              else
-                raise "Unexpected field type '#{@@backlogs_column_type[property].inspect}' for Issue##{property}"
-            end
-          end
-        }
+        return prefix + values
       end
+
     end
   end
 end

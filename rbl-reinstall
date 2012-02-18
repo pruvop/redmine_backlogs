@@ -111,7 +111,7 @@ if [[ $RVM =~ [Yy] ]]; then
 
     if [[ "$GEMSET" = "chiliproject" ]]; then
       gem install bundler
-      bundle exec gem install system_timer
+      gem install system_timer
       # rest is installed through bundler install
     fi
 fi
@@ -178,7 +178,12 @@ if [ "$GEMSET" = "chiliproject" ]; then
 
   if [[ $RVM =~ [Yy] ]]; then
     cd ~/redmine/chiliproject
+    sed -i -e"s/gem 'capybara'/gem 'capybara', '=0.3.9'/" Gemfile
     bundle install
+  fi
+
+  if [[ $CPINSTALL =~ [Yy] ]]; then
+    [ -f ~/redmine/redmine/config/environments/cucumber.rb ] || script/generate cucumber --spork
   fi
 fi
 

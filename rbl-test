@@ -23,13 +23,15 @@ zcat ../setup/$GEMSET.sql.gz| mysql -u root -p$DBROOTPW $GEMSET
 
 echo migrations
 rake db:migrate
-rake db:migrate_plugins
+rake --trace db:migrate:plugins
 #rake redmine:backlogs:install batch=true corruptiontest=false labels=false RAILS_ENV=cucumber
 rm -rf ~/$GEMSET/cache/*
 
 rm -f log/cucumber.log
 echo tests
 script -c "rake redmine:backlogs:rcov" -f ~/redmine/cuke-$GEMSET.log
+
+exit
 
 mysqladmin --force -u root -p$DBROOTPW drop $GEMSET
 mysqladmin -u root -p$DBROOTPW create $GEMSET
