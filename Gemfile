@@ -6,8 +6,7 @@ gem "holidays"
 gem "open-uri-cached"
 gem "nokogiri"
 
-gem "system_timer" if Backlogs.gems.include?('system_timer')
-
+gem "system_timer" if RUBY_VERSION =~ /^1\.8\./ && RUBY_PLATFORM =~ /darwin|linux/
 gem "gherkin", "=2.6.8"
 gem "cucumber", "=1.1.2"
 gem "zentest-without-autotest"
