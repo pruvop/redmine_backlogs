@@ -1,7 +1,3 @@
-def get_project(identifier)
-  Project.find(:first, :conditions => "identifier='#{identifier}'")
-end
-
 def time_offset(o)
   o = o.to_s.strip
   return nil if o == ''

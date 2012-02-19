@@ -7,7 +7,6 @@ Feature: Scrum master
     Given the ecookbook project has the backlogs plugin enabled
     Given I am viewing the master backlog
       And I am a scrum master of the project
-      And I have deleted all existing issues
       And I have the following issue statuses available:
         | name        | is_closed | is_default | default_done_ratio |
         | New         |         0 |          1 |                    |

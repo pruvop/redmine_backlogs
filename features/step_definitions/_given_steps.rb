@@ -137,19 +137,18 @@ end
 
 Given /^the (.*) project has the backlogs plugin enabled$/ do |project_id|
   Rails.cache.clear
-  @project = get_project(project_id)
+  Project.destroy_all(:identifier => 'cucumber')
 
-  # Enable the backlogs plugin
+  @project = Project.new(:identifier => 'cucumber', :name => 'cucumber')
   @project.enabled_modules << EnabledModule.new(:name => 'backlogs')
   @project.save
-  @project = get_project(project_id)
-  (!!@project.module_enabled?('backlogs')).should == true
 
   # Configure the story and task trackers
   story_trackers = Tracker.find(:all).map{|s| "#{s.id}"}
   task_tracker = "#{Tracker.create!(:name => 'Task').id}"
   plugin = Redmine::Plugin.find('redmine_backlogs')
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge( {:story_trackers => story_trackers, :task_tracker => task_tracker } )
+  Backlogs.setting[:story_trackers] = story_trackers
+  Backlogs.setting[:task_tracker] = task_tracker
 
   # Make sure these trackers are enabled in the project
   @project.update_attributes :tracker_ids => (story_trackers << task_tracker)
@@ -158,7 +157,6 @@ Given /^the (.*) project has the backlogs plugin enabled$/ do |project_id|
 end
 
 Given /^the project has the following sprints?:$/ do |table|
-  @project.versions.delete_all
   table.hashes.each do |version|
     version['project_id'] = @project.id
     ['effective_date', 'sprint_start_date'].each do |date_attr|
@@ -228,10 +226,6 @@ Given /^I have made the following task mutations:$/ do |table|
 
     mutation.should == {}
   end
-end
-
-Given /^I have deleted all existing issues$/ do
-  @project.issues.delete_all
 end
 
 Given /^the project has the following stories in the product backlog:$/ do |table|
@@ -353,7 +347,7 @@ Given /^I am viewing the issues sidebar for (.+)$/ do |name|
 end
 
 Given /^I have selected card label stock (.+)$/ do |stock|
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge( {:card_spec => stock } )
+  Backlogs.setting[:card_spec] = stock
   BacklogsCards::LabelStock.selected_label.should_not be_nil
 end
 
@@ -383,11 +377,7 @@ Given /^I have set the content for wiki page (.+) to (.+)$/ do |title, content|
 end
 
 Given /^I have made (.+) the template page for sprint notes/ do |title|
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge({:wiki_template => Wiki.titleize(title)})
-end
-
-Given /^there are no stories in the project$/ do
-  @project.issues.delete_all
+  Backlogs.setting[:wiki_template] = Wiki.titleize(title)
 end
 
 Given /^show me the task hours$/ do
@@ -411,5 +401,5 @@ end
 
 Given /^I have configured backlogs plugin to include Saturday and Sunday in burndown$/ do
   Rails.cache.clear
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge({:include_sat_and_sun => true})
+  Backlogs.setting[:include_sat_and_sun] = true
 end

@@ -13,6 +13,6 @@ Feature: Common
      Then the request should complete successfully
      
   Scenario: View the product backlog without any stories
-    Given there are no stories in the project
-     When I view the master backlog
+    Given I am viewing the master backlog
+    When I view the master backlog
      Then the request should complete successfully
