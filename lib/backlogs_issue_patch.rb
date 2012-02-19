@@ -117,6 +117,7 @@ module Backlogs
           self.remaining_hours = self.leaves.sum("COALESCE(remaining_hours, 0)").to_f
         end
 
+        @backlogs_new_record = self.new_record?
         return true
       end
 
@@ -127,12 +128,18 @@ module Backlogs
         ## care of this, but appearantly neither root_id nor
         ## parent_id are set at that point
 
+        # id will have changed (from nil to something) for a new record. The journal builds incrementally by following journal additions,
+        # but newly created issues don't have any journals. This call makes sure the start journal record gets created.
+
+        RbJournal.rebuild(self) if @backlogs_new_record
+
         return unless self.project.module_enabled? 'backlogs'
 
         if self.is_story?
           # raw sql and manual journal here because not
           # doing so causes an update loop when Issue calls
           # update_parent :<
+          tasks_updated = []
           Issue.find(:all, :conditions => ["root_id=? and lft>? and rgt<? and
                                           (
                                             (? is NULL and not fixed_version_id is NULL)
@@ -140,22 +147,34 @@ module Backlogs
                                             (not ? is NULL and fixed_version_id is NULL)
                                             or
                                             (not ? is NULL and not fixed_version_id is NULL and ?<>fixed_version_id)
-                                          )", root_id, lft, rgt, fixed_version_id, fixed_version_id, fixed_version_id, fixed_version_id]).each{|task|
+                                          )", self.root_id, self.lft, self.rgt,
+                                              self.fixed_version_id, self.fixed_version_id,
+                                              self.fixed_version_id, self.fixed_version_id]).each{|task|
             j = Journal.new
             j.journalized = task
             case Backlogs.platform 
               when :redmine
-                j.created_on = Time.now
+                j.created_on = self.updated_on
                 j.details << JournalDetail.new(:property => 'attr', :prop_key => 'fixed_version_id', :old_value => task.fixed_version_id, :value => fixed_version_id)
               when :chiliproject
-                j.created_at = Time.now
-                j.details = {'fixed_version_id' => [task.fixed_version_id, fixed_version_id]}
+                j.created_at = self.updated_on
+                j.details = {'fixed_version_id' => [task.fixed_version_id, self.fixed_version_id]}
             end
             j.user = User.current
             j.save!
+
+            tasks_updated << connection.quote(task.id)
           }
 
-          connection.execute("update issues set tracker_id = #{RbTask.tracker}, fixed_version_id = #{connection.quote(fixed_version_id)} where root_id = #{self.root_id} and lft > #{self.lft} and rgt < #{self.rgt}")
+          if tasks_updated.size > 0
+            tasks_updated = '(' + tasks_updated.join(',') + ')'
+            connection.execute("update issues set
+                                updated_on = #{connection.quote(self.updated_on)}, fixed_version_id = #{quoted_fixed_version}
+                                where id in #{tasks_updated}")
+          end
+          connection.execute("update issues
+                              set tracker_id = #{RbTask.tracker}
+                              where root_id = #{self.root_id} and lft > #{self.lft} and rgt < #{self.rgt}")
 
           # safe to do by sql since we don't want any of this logged
           unless self.position
@@ -163,6 +182,7 @@ module Backlogs
             connection.execute('select max(position) from issues where not position is null').each {|i| max = i[0] }
             connection.execute("update issues set position = #{connection.quote(max)} + 1 where id = #{id}")
           end
+
         end
 
         if self.story || self.is_task?
@@ -171,8 +191,8 @@ module Backlogs
       end
 
       def backlogs_after_destroy
-        return if self.position.nil?
-        Issue.connection.execute("update issues set position = position - 1 where position > #{self.position}")
+        Issue.connection.execute("update issues set position = position - 1 where position > #{self.position}") unless self.position.nil?
+        RbJournal.destroy_all(:issue_id => self.id)
       end
 
       def value_at(property, time)
@@ -180,6 +200,9 @@ module Backlogs
       end
 
       def history(property, days)
+        property = property.to_s unless property.is_a?(String)
+        raise "Unsupported property #{property.inspect}" unless RbJournal::JOURNALED_PROPERTIES.include?(property)
+
         days = days.to_a
         created_day = created_on.to_date
         active_days = days.select{|d| d >= created_day}
@@ -190,99 +213,22 @@ module Backlogs
         # anything before the creation date is nil
         prefix = [nil] * (days.size - active_days.size)
 
-        # add one extra day as end-of-last-day
-        active_days << (active_days[-1] + 1)
+        # add one extra day as start-of-first-day
+        active_days.unshift(active_days[0] - 1)
 
-        if !RbJournal.exists?(:issue_id => self.id, :property => property, :start_time => self.created_on) || !RbJournal.exists?(:issue_id => self.id, :property => property, :end_time => self.updated_on)
-          prop = [:status_success, :status_open].include?(property) ? :status_id : property
-
-          case Backlogs.platform
-            when :redmine
-              changes = JournalDetail.find(:all, :order => "journals.created_on asc" , :joins => :journal,
-                                                 :conditions => ["property = 'attr' and prop_key = ?
-                                                      and journalized_type = 'Issue' and journalized_id = ?",
-                                                      prop.to_s, self.id]).collect {|detail|
-                {:time => detail.journal.created_on, :old => detail.old_value, :new => detail.value}
-              }
-              
-            when :chiliproject
-              # the chiliproject changelog is screwed up beyond all reckoning...
-              # a truly horrid journals design -- worse than RMs, and that takes some doing
-              # I know this should be using activerecord introspection, but someone else will have to go
-              # rummaging through the docs for self.class.reflect_on_association et al.
-              table = case prop
-                when :status_id then 'issue_statuses'
-                else nil
-              end
-
-              valid_ids = table ? RbStory.connection.select_values("select id from #{table}").collect{|x| x.to_i} : nil
-              changes = self.journals.reject{|j| j.created_at < self.created_on || j.changes[property_s].nil?}.collect{|j|
-                delta = valid_ids ? j.changes[property_s].collect{|v| valid_ids.include?(v) ? v : nil} : j.changes[property_s]
-                {:time => j.created_at, :old => delta[0], :new => delta[1]}
-              }
-          end
-
-          issue_status = {}
-          if [:status_success, :status_open].include?(property)
-            changes.each{|change|
-              [:old, :new].each{|k|
-                status_id = change[k]
-                next if status_id.nil?
-
-                if issue_status[status_id].nil?
-                  case property
-                    when :status_open
-                      issue_status[status_id] = !(IssueStatus.find(status_id).is_closed?)
-                    when :status_success
-                      issue_status[status_id] = !!(IssueStatus.find(status_id).backlog_is?(:success))
-                  end
-                end
-
-                change[k] = issue_status[status_id]
-              }
-            }
-          end
-
-          RbJournal.destroy_all(:issue_id => self.id, :property => property)
-
-          changes.each_with_index{|change, i|
-            j = RbJournal.new(:issue_id => self.id, :property => property, :value => change[:old])
-
-            if i == 0
-              j.start_time = self.created_on
-            else
-              j.start_time = changes[i-1][:time]
-            end
-
-            if i == changes.size - 1
-              j.end_time = self.updated_on
-            else
-              j.end_time = change[:time]
-            end
-
-            j.save
-          }
+        journal = RbJournal.find(:all, :conditions => ['issue_id = ? and property = ?', self.id, property], :order => :timestamp).to_a
+        if journal.size == 0
+          RbJournal.rebuild(self)
+          journal = RbJournal.find(:all, :conditions => ['issue_id = ? and property = ?', self.id, property], :order => :timestamp).to_a
+          raise "Journal cannot have 0 entries" if journal.size == 0
         end
 
-        changes = RbJournal.find(:all,
-                    :conditions => ['issue_id = ? and property = ? and (start_time between ? and ? or end_time between ? and ?)',
-                                    self.id, property, active_days[0].to_time, active_days[-1].to_time, active_days[0].to_time, active_days[-1].to_time],
-                    :order => 'start_time')
+        values = [journal[0].value] * active_days.size
 
-        current_value = case property
-          when :status_open
-            !self.status.is_closed?
-          when :status_success
-            self.status.backlog_is?(:success)
-          else
-            self.send(property)
-          end
-
-        values = [(changes.size > 0 ? changes[0].value : current_value)] * active_days.size
-
-        changes.each{|change|
-          day = active_days.index{|d| d.to_time >= change.start_time}
-          next unless day.nil?
+        journal.each{|change|
+          stamp = change.timestamp.to_date
+          day = active_days.index{|d| d >= stamp}
+          break if day.nil?
           values.fill(change.value, day)
         }
 

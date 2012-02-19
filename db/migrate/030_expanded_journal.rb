@@ -5,8 +5,7 @@ class ExpandedJournal < ActiveRecord::Migration
     create_table :rb_journals do |t|
       t.column :issue_id, :integer, :null => false
       t.column :property, :string, :null => false
-      t.column :start_time, :datetime, :null => false
-      t.column :end_time, :datetime, :null => false
+      t.column :timestamp, :datetime, :null => false
       t.column :value, :string
     end
 
@@ -15,11 +14,7 @@ class ExpandedJournal < ActiveRecord::Migration
     puts "Migrating journals for #{issues.size} issues. This will take a while. Sorry."
     issues.in_groups_of(50, false) do |chunk|
       b = Benchmark.measure {
-        chunk.each{|issue|
-          [:status_success, :status_open, :fixed_version_id, :story_points, :remaining_hours].each{|property|
-            issue.history(property, (issue.created_on.to_date .. Date.today))
-          }
-        }
+        chunk.each{|issue| RbJournal.rebuild(issue) }
       }
 
       migrated += chunk.size

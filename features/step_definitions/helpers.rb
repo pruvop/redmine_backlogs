@@ -47,37 +47,32 @@ def initialize_sprint_params
   params
 end
 
-def login_as_product_owner
-  visit url_for(:controller => 'account', :action=>'login')
-  fill_in 'username', :with => 'jsmith'
-  fill_in 'password', :with => 'jsmith'
-  page.find(:xpath, '//input[@name="login"]').click
-  @user = User.find(:first, :conditions => "login='jsmith'")
-end
+def login(permissions)
+  User.delete_all(:login => 'cucumber')
+  Role.delete_all(:name => 'cucumber')
 
-def login_as_scrum_master
-  visit url_for(:controller => 'account', :action=>'login')
-  fill_in 'username', :with => 'jsmith'
-  fill_in 'password', :with => 'jsmith'
-  page.find(:xpath, '//input[@name="login"]').click
-  @user = User.find(:first, :conditions => "login='jsmith'")
-end
+  @user = User.new
+  @user.login = 'cucumber'
+  @user.password = 'cucumber'
+  @user.firstname = 'cucumber'
+  @user.lastname = 'cucumber'
+  @user.mail = 'cucumber@example.org'
+  @user.save!
 
-def login_as_team_member
-  visit url_for(:controller => 'account', :action=>'login')
-  fill_in 'username', :with => 'jsmith'
-  fill_in 'password', :with => 'jsmith'
-  page.find(:xpath, '//input[@name="login"]').click
-  @user = User.find(:first, :conditions => "login='jsmith'")
-end
+  role = Role.new(:name => 'cucumber')
+  permissions.each{|p| role.permissions << p}
+  role.save!
 
-def login_as_admin
+  member = Member.new(:user => @user, :project => @project)
+  member.role_ids = [role.id]
+  @project.members << member
+  @project.save!
+
   visit url_for(:controller => 'account', :action=>'login')
-  fill_in 'username', :with => 'admin'
-  fill_in 'password', :with => 'admin'
+  fill_in 'username', :with => 'cucumber'
+  fill_in 'password', :with => 'cucumber'
   page.find(:xpath, '//input[@name="login"]').click
-  @user = User.find(:first, :conditions => "login='admin'")
-end  
+end
 
 def task_position(task)
   p1 = task.story.tasks.select{|t| t.id == task.id}[0].rank
@@ -101,12 +96,15 @@ def logout
 end
 
 def show_table(title, header, data)
-  sizes = data.transpose.collect{|d| d.collect{|s| s.to_s.length}.max }
-  sizes = header.zip(sizes).collect{|hs| [hs[0].length, hs[1]].max }
-  sizes = sizes.zip(header).collect{|sh| sh[1].is_a?(Array) ? sh[1][1] : sh[0] }
+  fixed_sizes = header.collect{|h| h.is_a?(Array) ? h[1] : nil}
+
+  dynamic_sizes = [0] * header.size
+  data.each{|row|
+    dynamic_sizes = row.collect{|v| v.to_s.length}.zip(dynamic_sizes).collect{|h| h.max}
+  }
+  sizes = fixed_sizes.zip(dynamic_sizes).collect{|s| s[0].nil? ? s[1] : s[0]}
 
   header = header.collect{|h| h.is_a?(Array) ? h[0] : h}
-
   header = header.zip(sizes).collect{|hs| hs[0].ljust(hs[1]) }
 
   puts "\n#{title}"

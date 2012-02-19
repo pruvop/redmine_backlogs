@@ -159,6 +159,7 @@ class RbTask < Issue
     return Rails.cache.fetch("RbIssue(#{self.id}@#{self.updated_on}).burndown(#{sprint.id}@#{sprint.updated_on}-#{[Date.today, sprint.effective_date].min})") {
       days = sprint.days(:active)
       series = Backlogs::MergedArray.new
+
       series.merge(:hours => history(:remaining_hours, days))
       series.merge(:sprint => history(:fixed_version_id, days))
       series.merge(:sprint_start => days.collect{|d| (d == sprint.sprint_start_date)} + [false])

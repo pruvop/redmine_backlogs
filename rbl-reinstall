@@ -92,13 +92,14 @@ if [[ $RVM =~ [Yy] ]]; then
       # dev & testing
       gem install gherkin -v=2.6.8
       gem install -v=1.1.2 cucumber
-      gem install zentest-without-autotest
+      #gem install zentest-without-autotest
+      gem install ZenTest -v=4.6.0
       gem install -v=1.3.1 rspec
       gem install -v=0.3.2 cucumber-rails
       gem install capybara -v=0.3.9
       gem install spork
       gem install database_cleaner
-      gem install autotest-rails
+      #gem install autotest-rails
       gem install redgreen
       gem install rcov
       gem install -v=1.3.3 rspec-rails
@@ -211,7 +212,7 @@ if [ "$GEMSET" = "redmine" ]; then
     rake generate_session_store
     rake redmine:load_default_data
     rake db:migrate:upgrade_plugin_migrations
-    rake db:migrate_plugins
+    rake --trace db:migrate:plugins
     rake redmine:backlogs:install labels=no
   
     if [ ! -z "$USERPW" ]; then

@@ -5,6 +5,7 @@ Feature: Scrum master
 
   Background:
     Given the ecookbook project has the backlogs plugin enabled
+    Given I am viewing the master backlog
       And I am a scrum master of the project
       And I have deleted all existing issues
       And I have the following issue statuses available:
@@ -41,7 +42,6 @@ Feature: Scrum master
         | A.1          | Story A          | 10       | New    | 1h     |
         | B.1          | Story B          | 20       | New    | 1h     |
         | C.1          | Story C          | 40       | New    | 1h     |
-
         | S.1          | Siegerv story 1  | 10       | New    | 1h     |
 
   Scenario: Tasks closed AFTER remaining hours is set to 0 

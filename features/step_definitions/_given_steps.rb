@@ -2,45 +2,42 @@ require 'rubygems'
 require 'timecop'
 
 Given /^I am a product owner of the project$/ do
-  role = Role.find(:first, :conditions => "name='Manager'")
-  role.permissions << :view_master_backlog
-  role.permissions << :create_stories
-  role.permissions << :update_stories
-  role.permissions << :view_releases
-  role.permissions << :create_releases
-  role.permissions << :update_releases
-  role.permissions << :destroy_releases
-  role.permissions << :view_scrum_statistics
-  role.save!
-  login_as_product_owner
+  permissions = []
+  permissions << :view_master_backlog
+  permissions << :create_stories
+  permissions << :update_stories
+  permissions << :view_releases
+  permissions << :create_releases
+  permissions << :update_releases
+  permissions << :destroy_releases
+  permissions << :view_scrum_statistics
+  login(permissions)
 end
 
 Given /^I am a scrum master of the project$/ do
-  role = Role.find(:first, :conditions => "name='Manager'")
-  role.permissions << :view_master_backlog
-  role.permissions << :view_releases
-  role.permissions << :view_taskboards
-  role.permissions << :update_sprints
-  role.permissions << :update_stories
-  role.permissions << :create_impediments
-  role.permissions << :update_impediments
-  role.permissions << :subscribe_to_calendars
-  role.permissions << :view_wiki_pages        # NOTE: This is a Redmine core permission
-  role.permissions << :edit_wiki_pages        # NOTE: This is a Redmine core permission
-  role.permissions << :create_sprints
-  role.save!
-  login_as_scrum_master
+  permissions = []
+  permissions << :view_master_backlog
+  permissions << :view_releases
+  permissions << :view_taskboards
+  permissions << :update_sprints
+  permissions << :update_stories
+  permissions << :create_impediments
+  permissions << :update_impediments
+  permissions << :subscribe_to_calendars
+  permissions << :view_wiki_pages        # NOTE: This is a Redmine core permission
+  permissions << :edit_wiki_pages        # NOTE: This is a Redmine core permission
+  permissions << :create_sprints
+  login(permissions)
 end
 
 Given /^I am a team member of the project$/ do
-  role = Role.find(:first, :conditions => "name='Manager'")
-  role.permissions << :view_master_backlog
-  role.permissions << :view_releases
-  role.permissions << :view_taskboards
-  role.permissions << :create_tasks
-  role.permissions << :update_tasks
-  role.save!
-  login_as_team_member
+  permissions = []
+  permissions << :view_master_backlog
+  permissions << :view_releases
+  permissions << :view_taskboards
+  permissions << :create_tasks
+  permissions << :update_tasks
+  login(permissions)
 end
 
 Given /^I am logged out$/ do
@@ -144,6 +141,9 @@ Given /^the (.*) project has the backlogs plugin enabled$/ do |project_id|
 
   # Enable the backlogs plugin
   @project.enabled_modules << EnabledModule.new(:name => 'backlogs')
+  @project.save
+  @project = get_project(project_id)
+  (!!@project.module_enabled?('backlogs')).should == true
 
   # Configure the story and task trackers
   story_trackers = Tracker.find(:all).map{|s| "#{s.id}"}
@@ -153,6 +153,8 @@ Given /^the (.*) project has the backlogs plugin enabled$/ do |project_id|
 
   # Make sure these trackers are enabled in the project
   @project.update_attributes :tracker_ids => (story_trackers << task_tracker)
+
+  Backlogs.configured?.should == true
 end
 
 Given /^the project has the following sprints?:$/ do |table|

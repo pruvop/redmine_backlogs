@@ -233,23 +233,28 @@ Then /^show me the burndown for task (.+)$/ do |subject|
   end
 end
 
-Then /^show me the (.+) journal for (.+)$/ do |property, issue|
+Then /^dump the journal$/ do
+  header = ['id', 'property', 'value', 'timestamp']
+  show_table("Journal", header, RbJournal.find(:all, :order => 'id, timestamp, property').collect{|j| [j.issue_id, j.property, j.value, j.timestamp]})
+end
+
+Then /^show me the (.*)\s?journal for (.+)$/ do |property, issue|
   issue = Issue.find(:first, :conditions => ['subject = ?', issue])
+  property = property.strip
   puts "\n"
-  puts "#{issue.subject}(#{issue.id})##{property}, created: #{issue.created_on}"
-  issue.journals.each {|j|
-    case Backlogs.platform
-      when :redmine
-        j.details.select {|detail| detail.prop_key == property}.each {|detail|
-          puts "  #{j.created_on}: #{detail.old_value} -> #{detail.value}"
-        }
-      when :chiliproject
-        if j.changes[property] && j.created_at > issue.created_on
-          puts "  #{j.created_at}: #{j.changes[property].first} -> #{j.changes[property].last}"
-        end
-    end
+
+  puts "#{issue.subject}(#{issue.id}), created: #{issue.created_on}"
+  if property == ''
+    journal = RbJournal.find(:all, :conditions => ['issue_id = ?', issue.id], :order => :timestamp)
+  else
+    journal = RbJournal.find(:all, :conditions => ['property = ? and issue_id = ?', property, issue.id], :order => :timestamp)
+  end
+
+  journal.size.should_not == 0
+
+  journal.each{|j|
+    puts "  #{j.timestamp}: #{j.property} = #{j.value}"
   }
-  puts "  #{issue.updated_on}: #{issue.send(property.intern)}"
 end
 
 Then /^show me the story burndown for (.+)$/ do |story|
