@@ -23,7 +23,7 @@ Feature: Scrum master
         | Sprint siegerv | 2011-08-19        | 2011-09-02      |
 
       And the project has the following stories in the product backlog:
-        | position | subject | 
+        | position | subject |
         | 1        | Story 1 |
         | 2        | Story 2 |
         | 3        | Story 3 |
@@ -43,15 +43,15 @@ Feature: Scrum master
         | C.1          | Story C          | 40       | New    | 1h     |
         | S.1          | Siegerv story 1  | 10       | New    | 1h     |
 
-  Scenario: Tasks closed AFTER remaining hours is set to 0 
+  Scenario: Tasks closed AFTER remaining hours is set to 0
     Given I am viewing the taskboard for Sprint 001
       And I have made the following task mutations:
         | day     | task | remaining | status      |
-        | 1       | A.1  | 5         | In progress |
-        | 1       | B.1  | 10        | In progress |
+        | 1       | A.1  | 5         | In Progress |
+        | 1       | B.1  | 10        | In Progress |
         | 2       | A.1  | 0         |             |
         | 2       | A.1  |           | Closed      |
-        | 2       | C.1  | 30        | In progress |
+        | 2       | C.1  | 30        | In Progress |
         | 3       | B.1  | 0         |             |
         | 3       | B.1  |           | Closed      |
         | 3       | C.1  | 25        |             |
@@ -79,11 +79,11 @@ Feature: Scrum master
     Given I am viewing the taskboard for Sprint 001
       And I have made the following task mutations:
         | day     | task | remaining | status      |
-        | 1       | A.1  | 5         | In progress |
-        | 1       | B.1  | 10        | In progress |
+        | 1       | A.1  | 5         | In Progress |
+        | 1       | B.1  | 10        | In Progress |
         | 2       | A.1  |           | Closed      |
         | 2       | A.1  | 0         |             |
-        | 2       | C.1  | 30        | In progress |
+        | 2       | C.1  | 30        | In Progress |
         | 3       | B.1  |           | Closed      |
         | 3       | B.1  | 0         |             |
         | 3       | C.1  | 25        |             |
@@ -104,11 +104,11 @@ Feature: Scrum master
     Given I am viewing the taskboard for Sprint 001
       And I have made the following task mutations:
         | day     | task | remaining | status      |
-        | 1       | A.1  | 5         | In progress |
-        | 1       | B.1  | 10        | In progress |
+        | 1       | A.1  | 5         | In Progress |
+        | 1       | B.1  | 10        | In Progress |
         | 2       | A.1  | 0         |             |
         | 2       | A.1  |           | Closed      |
-        | 2       | C.1  | 30        | In progress |
+        | 2       | C.1  | 30        | In Progress |
 
       And the project has the following stories in the following sprints:
         | subject | sprint     | points | day |
@@ -162,11 +162,11 @@ Feature: Scrum master
       And I am viewing the taskboard for Sprint 001
       And I have made the following task mutations:
         | day     | task | remaining | status      |
-        | 1       | A.1  | 5         | In progress |
-        | 1       | B.1  | 10        | In progress |
+        | 1       | A.1  | 5         | In Progress |
+        | 1       | B.1  | 10        | In Progress |
         | 2       | A.1  | 0         |             |
         | 2       | A.1  |           | Closed      |
-        | 2       | C.1  | 30        | In progress |
+        | 2       | C.1  | 30        | In Progress |
         | 3       | B.1  | 0         |             |
         | 3       | B.1  |           | Closed      |
         | 3       | C.1  | 25        |             |
