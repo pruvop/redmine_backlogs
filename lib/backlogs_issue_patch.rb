@@ -128,11 +128,7 @@ module Backlogs
         ## care of this, but appearantly neither root_id nor
         ## parent_id are set at that point
 
-        # id will have changed (from nil to something) for a new record. The journal builds incrementally by following journal additions,
-        # but newly created issues don't have any journals. This call makes sure the start journal record gets created.
-
         RbJournal.rebuild(self) if @backlogs_new_record
-
         return unless Backlogs.configured?(self.project)
 
         if self.is_story?
