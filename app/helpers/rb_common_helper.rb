@@ -20,10 +20,10 @@ module RbCommonHelper
     if (task.blank? || task.assigned_to.blank? || !task.assigned_to.is_a?(User))
       ''
     else
-      color_to = task.assigned_to.backlogs_preference(:task_color)
+      color_to = task.assigned_to.backlogs_preference[:task_color]
       color_from = Backlogs::Color.new(color_to).lighten(0.5)
       "style='
-background-color:#{task.assigned_to.backlogs_preference(:task_color)}; 
+background-color:#{task.assigned_to.backlogs_preference[:task_color]}; 
 background: -webkit-gradient(linear, left top, left bottom, from(#{color_from}), to(#{color_to}));
 background: -moz-linear-gradient(top, #{color_from}, #{color_to});
 filter:progid:DXImageTransform.Microsoft.Gradient(Enabled=1,GradientType=0,StartColorStr=#{color_from},EndColorStr=#{color_to});
@@ -32,7 +32,7 @@ filter:progid:DXImageTransform.Microsoft.Gradient(Enabled=1,GradientType=0,Start
   end
 
   def build_inline_style_color(task)
-    task.blank? || task.assigned_to.blank? || !task.assigned_to.is_a?(User) ? '' : "#{task.assigned_to.backlogs_preference(:task_color)}"
+    task.blank? || task.assigned_to.blank? || !task.assigned_to.is_a?(User) ? '' : "#{task.assigned_to.backlogs_preference[:task_color]}"
   end 
   
   def breadcrumb_separator
@@ -203,13 +203,11 @@ filter:progid:DXImageTransform.Microsoft.Gradient(Enabled=1,GradientType=0,Start
 
   # Returns a collection of users allowed to log time for the current project. (see app/views/rb_taskboards/show.html.erb for usage)
   def users_allowed_to_log_on_task
-    users = User.find(:all)
-    collection = []
-    users.each do |a|
-      roles = a.roles_for_project(@project)
-      collection << [a.name, a.id] if roles and roles.detect {|role| role.member? && role.allowed_to?(:log_time)}
-    end
-    collection
+    @project.memberships.collect{|m|
+      user = m.user
+      roles = user ? user.roles_for_project(@project) : nil
+      roles && roles.detect {|role| role.member? && role.allowed_to?(:log_time)} ? [user.name, user.id] : nil
+    }.compact.insert(0,["",0]) # Add blank entry
   end
 
   def tidy(html)
