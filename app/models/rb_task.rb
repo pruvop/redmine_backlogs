@@ -173,43 +173,14 @@ class RbTask < Issue
     }
   end
 
-  def set_initial_estimate(hours)
-    if fixed_version_id and fixed_version.sprint_start_date
-      time = [fixed_version.sprint_start_date.to_time, created_on].max
-    else
-      time = created_on
-    end
-
-    jd = JournalDetail.find(:first, :order => "journals.created_on desc", :joins => :journal,
-      :conditions => ["property = 'attr' and prop_key = 'estimated_hours' and journalized_type = 'Issue' and journalized_id = ? and created_on <= ?", id, time])
-
-    if jd
-      if jd.value.blank? || Float(jd.value) != hours
-        hours = hours.to_s.gsub(/\.0+$/, '')
-
-        JournalDetail.connection.execute("update journal_details set value='#{hours}' where id = #{jd.id}")
-
-        jd = JournalDetail.find(:first, :order => "journals.created_on asc", :joins => :journal,
-          :conditions => ["property = 'attr' and prop_key = 'remaining_hours' and journalized_type = 'Issue' and journalized_id = ? and created_on >= ?", id, jd.journal.created_on])
-        JournalDetail.connection.execute("update journal_details set old_value='#{hours}' where id = #{jd.id}") if jd
-      end
-    else
-      if hours != remaining_hours
-        j = Journal.new(:journalized => self, :user => User.current, :created_on => time)
-        j.details << JournalDetail.new(:property => 'attr', :prop_key => 'remaining_hours', :value => remaining_hours, :old_value => hours)
-        j.save!
-      end
-    end
-  end
-
   def time_entry_add(params)
     # Will also save time entry if only comment is filled, hours will default to 0. We don't want the user 
     # to loose a precious comment if hours is accidently left blank.
     if !params[:time_entry_hours].blank? || !params[:time_entry_comments].blank?
       @time_entry = TimeEntry.new(:issue => self, :project => self.project) 
       # Make sure user has permission to edit time entries to allow 
-      # logging time for other users
-      if User.current.allowed_to?(:edit_time_entries, self.project)
+      # logging time for other users. Use current user in case none is selected
+      if User.current.allowed_to?(:edit_time_entries, self.project) && params[:time_entry_user_id].to_i != 0
         @time_entry.user_id = params[:time_entry_user_id]
       else
         # Otherwise log time for current user

@@ -211,12 +211,12 @@ Given /^I have made the following task mutations:$/ do |table|
     task.should_not be_nil
     task.init_journal(User.current)
 
-    status = mutation.delete('status').to_s
-    if status.blank?
+    status_name = mutation.delete('status').to_s
+    if status_name.blank?
       status = nil
     else
-      status = IssueStatus.find(:first, :conditions => ['name = ?', status])
-      raise "No such status '#{status}'" unless status
+      status = IssueStatus.find(:first, :conditions => ['name = ?', status_name])
+      raise "No such status '#{status_name}'" unless status
       status = status.id
     end
 
@@ -361,8 +361,8 @@ Given /^I am viewing the issues sidebar for (.+)$/ do |name|
 end
 
 Given /^I have selected card label stock (.+)$/ do |stock|
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge( {:card_spec => stock } )
-  BacklogsCards::LabelStock.selected_label.should_not be_nil
+  Backlogs.setting[:card_spec] = stock
+  BacklogsPrintableCards::CardPageLayout.selected.should_not be_nil
 end
 
 Given /^I have set my API access key$/ do

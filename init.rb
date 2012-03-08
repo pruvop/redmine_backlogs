@@ -2,6 +2,8 @@ require 'redmine'
 require 'dispatcher'
 
 Dispatcher.to_prepare do
+  require_dependency 'backlogs_setup'
+
   require_dependency 'issue'
 
   if Issue.const_defined? "SAFE_ATTRIBUTES"
@@ -25,7 +27,7 @@ Dispatcher.to_prepare do
 
   require_dependency 'backlogs_merged_array'
 
-  require_dependency 'backlogs_setup'
+  require_dependency 'backlogs_printable_cards'
 
   Redmine::AccessControl.permission(:manage_versions).actions << "rb_sprints/close_completed"
 end
@@ -35,7 +37,7 @@ Redmine::Plugin.register :redmine_backlogs do
   name 'Redmine Backlogs'
   author 'relaxdiego, friflaj'
   description 'A plugin for agile teams'
-  version 'v0.8.3'
+  version 'v0.8.6'
 
   settings :default => { 
                          :story_trackers            => nil, 
