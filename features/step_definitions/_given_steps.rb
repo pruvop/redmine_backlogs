@@ -348,7 +348,7 @@ end
 
 Given /^I have selected card label stock (.+)$/ do |stock|
   Backlogs.setting[:card_spec] = stock
-  BacklogsCards::LabelStock.selected_label.should_not be_nil
+  BacklogsPrintableCards::CardPageLayout.selected.should_not be_nil
 end
 
 Given /^I have set my API access key$/ do
