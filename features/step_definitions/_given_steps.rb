@@ -2,42 +2,45 @@ require 'rubygems'
 require 'timecop'
 
 Given /^I am a product owner of the project$/ do
-  permissions = []
-  permissions << :view_master_backlog
-  permissions << :create_stories
-  permissions << :update_stories
-  permissions << :view_releases
-  permissions << :create_releases
-  permissions << :update_releases
-  permissions << :destroy_releases
-  permissions << :view_scrum_statistics
-  login(permissions)
+  role = Role.find_by_name('Manager')
+  role.permissions << :view_master_backlog
+  role.permissions << :create_stories
+  role.permissions << :update_stories
+  role.permissions << :view_releases
+  role.permissions << :create_releases
+  role.permissions << :update_releases
+  role.permissions << :destroy_releases
+  role.permissions << :view_scrum_statistics
+  role.save!
+  login_as_product_owner
 end
 
 Given /^I am a scrum master of the project$/ do
-  permissions = []
-  permissions << :view_master_backlog
-  permissions << :view_releases
-  permissions << :view_taskboards
-  permissions << :update_sprints
-  permissions << :update_stories
-  permissions << :create_impediments
-  permissions << :update_impediments
-  permissions << :subscribe_to_calendars
-  permissions << :view_wiki_pages        # NOTE: This is a Redmine core permission
-  permissions << :edit_wiki_pages        # NOTE: This is a Redmine core permission
-  permissions << :create_sprints
-  login(permissions)
+  role = Role.find_by_name('Manager')
+  role.permissions << :view_master_backlog
+  role.permissions << :view_releases
+  role.permissions << :view_taskboards
+  role.permissions << :update_sprints
+  role.permissions << :update_stories
+  role.permissions << :create_impediments
+  role.permissions << :update_impediments
+  role.permissions << :subscribe_to_calendars
+  role.permissions << :view_wiki_pages        # NOTE: This is a Redmine core permission
+  role.permissions << :edit_wiki_pages        # NOTE: This is a Redmine core permission
+  role.permissions << :create_sprints
+  role.save!
+  login_as_scrum_master
 end
 
-Given /^I am a team member of the project$/ do
-  permissions = []
-  permissions << :view_master_backlog
-  permissions << :view_releases
-  permissions << :view_taskboards
-  permissions << :create_tasks
-  permissions << :update_tasks
-  login(permissions)
+Given /^I am a team member of the projects?$/ do
+  role = Role.find_by_name('Manager')
+  role.permissions << :view_master_backlog
+  role.permissions << :view_releases
+  role.permissions << :view_taskboards
+  role.permissions << :create_tasks
+  role.permissions << :update_tasks
+  role.save!
+  login_as_team_member
 end
 
 Given /^I am logged out$/ do
@@ -51,13 +54,13 @@ Given /^I am viewing the master backlog$/ do
 end
 
 Given /^I am viewing the burndown for (.+)$/ do |sprint_name|
-  @sprint = RbSprint.find(:first, :conditions => ["name=?", sprint_name])
+  @sprint = RbSprint.find_by_name(sprint_name)
   visit url_for(:controller => :rb_burndown_charts, :action => :show, :sprint_id => @sprint.id)
   page.driver.response.status.should == 200
 end
 
 Given /^I am viewing the taskboard for (.+)$/ do |sprint_name|
-  @sprint = RbSprint.find(:first, :conditions => ["name=?", sprint_name])
+  @sprint = RbSprint.find_by_name(sprint_name)
   visit url_for(:controller => :rb_taskboards, :action => :show, :sprint_id => @sprint.id)
   page.driver.response.status.should == 200
 end
@@ -65,10 +68,10 @@ end
 Given /^I set the (.+) of the story to (.+)$/ do |attribute, value|
   if attribute=="tracker"
     attribute="tracker_id"
-    value = Tracker.find(:first, :conditions => ["name=?", value]).id
+    value = Tracker.find_by_name(value).id
   elsif attribute=="status"
     attribute="status_id"
-    value = IssueStatus.find(:first, :conditions => ["name=?", value]).id
+    value = IssueStatus.find_by_name(value).id
   end
   @story_params[attribute] = value
 end
@@ -83,13 +86,13 @@ Given /^I want to create a story$/ do
 end
 
 Given /^I want to create a task for (.+)$/ do |story_subject|
-  story = RbStory.find(:first, :conditions => ["subject=?", story_subject])
+  story = RbStory.find_by_subject(story_subject)
   @task_params = initialize_task_params(story.id)
 end
 
 Given /^I want to create an impediment for (.+)$/ do |sprint_subject|
-  sprint = RbSprint.find(:first, :conditions => { :name => sprint_subject })
-  @impediment_params = initialize_impediment_params(sprint.id)
+  sprint = RbSprint.find_by_name(sprint_subject)
+  @impediment_params = initialize_impediment_params(:fixed_version_id => sprint.id)
 end
 
 Given /^I want to create a sprint$/ do
@@ -97,25 +100,25 @@ Given /^I want to create a sprint$/ do
 end
 
 Given /^I want to edit the task named (.+)$/ do |task_subject|
-  task = RbTask.find(:first, :conditions => { :subject => task_subject })
+  task = RbTask.find_by_subject(task_subject)
   task.should_not be_nil
   @task_params = HashWithIndifferentAccess.new(task.attributes)
 end
 
 Given /^I want to edit the impediment named (.+)$/ do |impediment_subject|
-  impediment = RbTask.find(:first, :conditions => { :subject => impediment_subject })
+  impediment = RbTask.find_by_subject(impediment_subject)
   impediment.should_not be_nil
-  @impediment_params = HashWithIndifferentAccess.new(impediment.attributes)
+  @impediment_params = initialize_impediment_params(impediment.attributes)
 end
 
 Given /^I want to edit the sprint named (.+)$/ do |name|
-  sprint = RbSprint.find(:first, :conditions => ["name=?", name])
+  sprint = RbSprint.find_by_name(name)
   sprint.should_not be_nil
   @sprint_params = HashWithIndifferentAccess.new(sprint.attributes)
 end
 
 Given /^I want to indicate that the impediment blocks (.+)$/ do |blocks_csv|
-  blocks_csv = RbStory.find(:all, :conditions => { :subject => blocks_csv.split(', ') }).map{ |s| s.id }.join(',')
+  blocks_csv = RbStory.find(:all, :conditions => { :subject => blocks_csv.split(',').collect{|b| b.strip} }).collect{ |s| s.id.to_s }.join(',')
   @impediment_params[:blocks] = blocks_csv
 end
 
@@ -130,35 +133,42 @@ Given /^I want to set the (.+) of the impediment to (.+)$/ do |attribute, value|
 end
 
 Given /^I want to edit the story with subject (.+)$/ do |subject|
-  @story = RbStory.find(:first, :conditions => ["subject=?", subject])
+  @story = RbStory.find_by_subject(subject)
   @story.should_not be_nil
   @story_params = HashWithIndifferentAccess.new(@story.attributes)
 end
 
 Given /^the (.*) project has the backlogs plugin enabled$/ do |project_id|
   Rails.cache.clear
-  Project.destroy_all(:identifier => 'cucumber')
+  @project = get_project(project_id)
 
-  @project = Project.new(:identifier => 'cucumber', :name => 'cucumber')
+  # Enable the backlogs plugin
   @project.enabled_modules << EnabledModule.new(:name => 'backlogs')
-  @project.save
 
   # Configure the story and task trackers
-  story_trackers = Tracker.find(:all).map{|s| "#{s.id}"}
-  task_tracker = "#{Tracker.create!(:name => 'Task').id}"
-  plugin = Redmine::Plugin.find('redmine_backlogs')
-  Backlogs.setting[:story_trackers] = story_trackers
-  Backlogs.setting[:task_tracker] = task_tracker
+  @impediment_tracker = (Tracker.find_by_name('Impediment') || Tracker.create!(:name => 'Impediment')).id
+  story_tracker = (Tracker.find_by_name('Story') || Tracker.create!(:name => 'Story')).id
+  task_tracker = (Tracker.find_by_name('Task') || Tracker.create!(:name => 'Task')).id
+
+  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge( {:story_trackers => [story_tracker], :task_tracker => task_tracker } )
 
   # Make sure these trackers are enabled in the project
-  @project.update_attributes :tracker_ids => (story_trackers << task_tracker)
+  @project.update_attributes :tracker_ids => [story_tracker, task_tracker]
+end
 
-  Backlogs.configured?.should == true
+Given /^no versions or issues exist$/ do
+  Issue.find(:all).each{|i| i.destroy }
+  Version.find(:all).each{|v| v.destroy }
+end
+
+Given /^I have selected the (.*) project$/ do |project_id|
+  @project = get_project(project_id)
 end
 
 Given /^the project has the following sprints?:$/ do |table|
+  @project.shared_versions.each {|s| s.destroy }
   table.hashes.each do |version|
-    version['project_id'] = @project.id
+    version['project_id'] = Project.find(version['project_id'] || @project.id).id
     ['effective_date', 'sprint_start_date'].each do |date_attr|
       if version[date_attr] == 'today'
         version[date_attr] = Date.today.strftime("%Y-%m-%d")
@@ -201,12 +211,12 @@ Given /^I have made the following task mutations:$/ do |table|
     task.should_not be_nil
     task.init_journal(User.current)
 
-    status_name = mutation.delete('status').to_s
-    if status_name.blank?
+    status = mutation.delete('status').to_s
+    if status.blank?
       status = nil
     else
-      status = IssueStatus.find(:first, :conditions => ['name = ?', status_name])
-      raise "No such status '#{status_name}'" unless status
+      status = IssueStatus.find(:first, :conditions => ['name = ?', status])
+      raise "No such status '#{status}'" unless status
       status = status.id
     end
 
@@ -226,6 +236,10 @@ Given /^I have made the following task mutations:$/ do |table|
 
     mutation.should == {}
   end
+end
+
+Given /^I have deleted all existing issues$/ do
+  @project.issues.delete_all
 end
 
 Given /^the project has the following stories in the product backlog:$/ do |table|
@@ -281,7 +295,7 @@ Given /^the project has the following stories in the following sprints:$/ do |ta
   end
 end
 
-Given /^the project has the following tasks:$/ do |table|
+Given /^I have defined the following tasks:$/ do |table|
   table.hashes.each do |task|
     story = RbStory.find(:first, :conditions => { :subject => task.delete('story') })
     story.should_not be_nil
@@ -313,7 +327,7 @@ Given /^the project has the following tasks:$/ do |table|
   end
 end
 
-Given /^the project has the following impediments:$/ do |table|
+Given /^I have defined the following impediments:$/ do |table|
   table.hashes.each do |impediment|
     sprint = RbSprint.find(:first, :conditions => { :name => impediment.delete('sprint') })
     params = initialize_impediment_params(sprint.id)
@@ -347,8 +361,8 @@ Given /^I am viewing the issues sidebar for (.+)$/ do |name|
 end
 
 Given /^I have selected card label stock (.+)$/ do |stock|
-  Backlogs.setting[:card_spec] = stock
-  BacklogsPrintableCards::CardPageLayout.selected.should_not be_nil
+  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge( {:card_spec => stock } )
+  BacklogsCards::LabelStock.selected_label.should_not be_nil
 end
 
 Given /^I have set my API access key$/ do
@@ -377,7 +391,11 @@ Given /^I have set the content for wiki page (.+) to (.+)$/ do |title, content|
 end
 
 Given /^I have made (.+) the template page for sprint notes/ do |title|
-  Backlogs.setting[:wiki_template] = Wiki.titleize(title)
+  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge({:wiki_template => Wiki.titleize(title)})
+end
+
+Given /^there are no stories in the project$/ do
+  @project.issues.destroy_all
 end
 
 Given /^show me the task hours$/ do
@@ -401,5 +419,5 @@ end
 
 Given /^I have configured backlogs plugin to include Saturday and Sunday in burndown$/ do
   Rails.cache.clear
-  Backlogs.setting[:include_sat_and_sun] = true
+  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge({:include_sat_and_sun => true})
 end

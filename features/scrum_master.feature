@@ -5,6 +5,7 @@ Feature: Scrum Master
 
   Background:
     Given the ecookbook project has the backlogs plugin enabled
+      And no versions or issues exist
       And I am a scrum master of the project
       And the project has the following sprints:
         | name       | sprint_start_date | effective_date  |
@@ -12,17 +13,17 @@ Feature: Scrum Master
         | Sprint 002 | 2010-02-01        | 2010-02-28      |
         | Sprint 003 | 2010-03-01        | 2010-03-31      |
         | Sprint 004 | 2.weeks.ago       | 1.week.from_now |
-      And the project has the following stories in the product backlog:
+      And I have defined the following stories in the product backlog:
         | position | subject |
         | 1        | Story 1 |
         | 2        | Story 2 |
         | 3        | Story 3 |
         | 4        | Story 4 |
-      And the project has the following stories in the following sprints:
+      And I have defined the following stories in the following sprints:
         | position | subject | sprint     |
         | 5        | Story A | Sprint 001 |
         | 6        | Story B | Sprint 001 |
-      And the project has the following impediments:
+      And I have defined the following impediments:
         | subject      | sprint     | blocks  |
         | Impediment 1 | Sprint 001 | Story A | 
 
@@ -41,8 +42,7 @@ Feature: Scrum Master
       And I want to set the subject of the impediment to Good Impediment
       And I want to indicate that the impediment blocks Story B
      When I update the impediment
-     Then the request should complete successfully
-      And the sprint named Sprint 001 should have 1 impediment named Good Impediment
+     Then the sprint named Sprint 001 should have 1 impediment named Good Impediment
 
   Scenario: View impediments
     Given I am viewing the issues sidebar for Sprint 001
@@ -59,8 +59,7 @@ Feature: Scrum Master
       And I want to set the sprint_start_date of the sprint to 2010-03-01
       And I want to set the effective_date of the sprint to 2010-03-20
      When I create the sprint
-     Then the request should complete successfully
-      And I should see "sprint 005"
+     Then I should see "sprint 005"
 
   Scenario: Update sprint details
     Given I am viewing the master backlog
@@ -69,8 +68,7 @@ Feature: Scrum Master
       And I want to set the sprint_start_date of the sprint to 2010-03-01
       And I want to set the effective_date of the sprint to 2010-03-20
      When I update the sprint
-     Then the request should complete successfully
-      And the sprint should be updated accordingly
+     Then the sprint should be updated accordingly
 
   Scenario: Update sprint with no name
     Given I am viewing the master backlog
@@ -82,8 +80,7 @@ Feature: Scrum Master
   Scenario: Move a story from product backlog to sprint backlog
     Given I am viewing the master backlog
      When I move the story named Story 1 up to the 1st position of the sprint named Sprint 001
-     Then the request should complete successfully
-     When I move the story named Story 4 up to the 2nd position of the sprint named Sprint 001
+      And I move the story named Story 4 up to the 2nd position of the sprint named Sprint 001
       And I move the story named Story 2 up to the 1st position of the sprint named Sprint 002
       And I move the story named Story 4 up to the 1st position of the sprint named Sprint 001
      Then Story 4 should be in the 1st position of the sprint named Sprint 001
@@ -93,8 +90,7 @@ Feature: Scrum Master
   Scenario: Move a story down in a sprint
     Given I am viewing the master backlog
      When I move the story named Story A below Story B
-     Then the request should complete successfully
-      And Story A should be in the 2nd position of the sprint named Sprint 001
+     Then Story A should be in the 2nd position of the sprint named Sprint 001
       And Story B should be the higher item of Story A
      
   Scenario: Request the project calendar feed
@@ -125,14 +121,12 @@ Feature: Scrum Master
       And I have made Sprint Template the template page for sprint notes
       And I am viewing the taskboard for Sprint 001
      When I view the sprint notes
-     Then the request should complete successfully
-    Then the wiki page Sprint 001 should contain Sprint Template
+     Then the wiki page Sprint 001 should contain Sprint Template
 
   Scenario: edit the sprint notes
     Given I have set the content for wiki page Sprint Template to Sprint Template
       And I have made Sprint Template the template page for sprint notes
       And I am viewing the taskboard for Sprint 001
      When I edit the sprint notes
-     Then the request should complete successfully
      Then the wiki page Sprint 001 should contain Sprint Template
 

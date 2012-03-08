@@ -5,8 +5,9 @@ Feature: Product Owner
 
   Background:
     Given the ecookbook project has the backlogs plugin enabled
+      And no versions or issues exist
       And I am a product owner of the project
-      And the project has the following sprints:
+      And I have defined the following sprints:
         | name       | sprint_start_date | effective_date |
         | Sprint 001 | 2010-01-01        | 2010-01-31     |
         | Sprint 002 | 2010-02-01        | 2010-02-28     |
@@ -18,7 +19,7 @@ Feature: Product Owner
         | 2        | Story 2 |
         | 3        | Story 3 |
         | 4        | Story 4 |
-      And the project has the following stories in the following sprints:
+      And I have defined the following stories in the following sprints:
         | position | subject | sprint     |
         | 5        | Story A | Sprint 001 |
         | 6        | Story B | Sprint 001 |
@@ -45,10 +46,10 @@ Feature: Product Owner
     Given I am viewing the master backlog
       And I want to edit the story with subject Story 3
       And I set the subject of the story to Relaxdiego was here
-      And I set the tracker of the story to Bug
+      And I set the tracker of the story to Story
      When I update the story
      Then the story should have a subject of Relaxdiego was here
-      And the story should have a tracker of Bug
+      And the story should have a tracker of Story
       And the story should be at position 3
 
   Scenario: Close a story

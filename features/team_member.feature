@@ -5,6 +5,7 @@ Feature: Team Member
 
   Background:
     Given the ecookbook project has the backlogs plugin enabled
+      And no versions or issues exist
       And I am a team member of the project
       And the project has the following sprints:
         | name       | sprint_start_date | effective_date |
@@ -12,7 +13,7 @@ Feature: Team Member
         | Sprint 002 | 2010-02-01        | 2010-02-28     |
         | Sprint 003 | 2010-03-01        | 2010-03-31     |
         | Sprint 004 | 2010-03-01        | 2010-03-31     |
-      And the project has the following stories in the following sprints:
+      And I have defined the following stories in the following sprints:
         | position | subject | sprint     |
         | 1        | Story 1 | Sprint 001 |
         | 2        | Story 2 | Sprint 001 |
@@ -21,7 +22,7 @@ Feature: Team Member
       And the project has the following tasks:
         | subject | story  |
         | Task 1  | Story 1 |
-      And the project has the following impediments:
+      And I have defined the following impediments:
         | subject      | sprint     | blocks  |
         | Impediment 1 | Sprint 001 | Story 1 |
         | Impediment 2 | Sprint 001 | Story 2 | 
@@ -31,16 +32,14 @@ Feature: Team Member
       And I want to create a task for Story 1
       And I set the subject of the task to A Whole New Task
      When I create the task
-     Then the request should complete successfully
-      And the 2nd task for Story 1 should be A Whole New Task
+     Then the 2nd task for Story 1 should be A Whole New Task
 
   Scenario: Update a task for a story
     Given I am viewing the taskboard for Sprint 001
       And I want to edit the task named Task 1
       And I set the subject of the task to Whoa there, Sparky
      When I update the task
-     Then the request should complete successfully
-      And the story named Story 1 should have 1 task named Whoa there, Sparky
+     Then the story named Story 1 should have 1 task named Whoa there, Sparky
 
   Scenario: View a taskboard
     Given I am viewing the taskboard for Sprint 001
@@ -63,26 +62,22 @@ Feature: Team Member
   Scenario: Fetch the updated stories
     Given I am viewing the master backlog
      When the browser fetches stories updated since 1 week ago
-     Then the request should complete successfully
-      And the server should return 4 updated stories
+     Then the server should return 4 updated stories
 
   Scenario: Fetch the updated tasks
     Given I am viewing the taskboard for Sprint 001
      When the browser fetches tasks updated since 1 week ago
-     Then the request should complete successfully
-      And the server should return 1 updated task
+     Then the server should return 1 updated task
 
   Scenario: Fetch the updated impediments
     Given I am viewing the taskboard for Sprint 001
      When the browser fetches impediments updated since 1 week ago
-     Then the request should complete successfully
-      And the server should return 2 updated impediments
+     Then the server should return 2 updated impediments
 
   Scenario: Fetch zero updated impediments 
     Given I am viewing the taskboard for Sprint 001
      When the browser fetches impediments updated since 1 week from now
-     Then the request should complete successfully
-      And the server should return 0 updated impediments
+     Then the server should return 0 updated impediments
       
   Scenario: Copy estimate to remaining
     Given I am viewing the taskboard for Sprint 001
@@ -99,8 +94,7 @@ Feature: Team Member
       And I set the subject of the task to A Whole New Task
       And I set the estimated_hours of the task to 3
      When I create the task
-     Then the request should complete successfully
-      And task A Whole New Task should have estimated_hours set to 3
+     Then task A Whole New Task should have estimated_hours set to 3
 
   Scenario: Set both estimate and remaining
     Given I am viewing the taskboard for Sprint 001
@@ -112,6 +106,6 @@ Feature: Team Member
       And I set the subject of the task to A Second New Task
       And I set the estimated_hours of the task to 2
      When I create the task
-     Then the request should complete successfully
+     Then task A Whole New Task should have estimated_hours set to 3
       And task A Whole New Task should have estimated_hours set to 8
       And story Story 1 should have estimated_hours set to 10
