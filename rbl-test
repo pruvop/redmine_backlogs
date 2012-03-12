@@ -1,14 +1,42 @@
 #!/bin/bash
 
+function print_usage {
+cat <<EOF
+
+Usage:
+`basename $0`               Run all tests and generate coverage report
+`basename $0` -f <feature>  Run tests for a single feature
+`basename $0` -h            Show this page
+`basename $0` -p            Publish test results to website
+
+EOF
+exit $1
+}
+
+while getopts "phf:" OPT; do
+  case $OPT in
+    h) print_usage 0;;
+    f) TEST_FEATURE="$OPTARG";;
+    p) PUBLISH="yes";;
+    [?]) print_usage 1;;
+  esac
+done
+
 GEMSET=`rvm-prompt g | sed -e 's/@//'`
 export RAILS_ENV=cucumber
+
+case "$GEMSET" in
+  redmine) ;;
+  chiliproject) ;;
+  *) echo 'No gemset active'; exit 1;;
+esac
 
 CONFIG="$( cd "$( dirname "$0" )" && pwd )"
 CONFIG="$CONFIG/rbl-reinstall.rc"
 
 if [ ! -f $CONFIG ]; then
     echo "$CONFIG does not exist"
-    exit
+    exit 1
 fi
 
 source $CONFIG
@@ -23,13 +51,18 @@ mysqladmin -u root -p$DBROOTPW create $GEMSET
 
 echo migrations
 rake db:migrate
-rake --trace db:migrate:plugins
+rake db:migrate:plugins
 #rake redmine:backlogs:install batch=true corruptiontest=false labels=false RAILS_ENV=cucumber
 rm -rf ~/$GEMSET/cache/*
 
 rm -f log/cucumber.log
-echo tests
-script -c "rake redmine:backlogs:rcov" -f ~/redmine/cuke-$GEMSET.log
+if [ -z "$TEST_FEATURE" ]; then
+  echo "Running all tests"
+  script -c "rake redmine:backlogs:rcov" -f ~/redmine/cuke-$GEMSET.log
+else
+  echo "Testing feature: $TEST_FEATURE"
+  script -c "cucumber $TEST_FEATURE" -f ~/redmine/cuke-$GEMSET.log
+fi
 
 exit
 
@@ -37,6 +70,49 @@ mysqladmin --force -u root -p$DBROOTPW drop $GEMSET
 mysqladmin -u root -p$DBROOTPW create $GEMSET
 cat ../setup/blcuke-salvage.sql | mysql -u root -p$DBROOTPW $GEMSET 
 
-#rm -f ~/redmine/www.redminebacklogs.net/coverage/*
-#cp -r ~/redmine/redmine/coverage/* ~/redmine/www.redminebacklogs.net/coverage
-#chmod a+rwX ~/redmine/www.redminebacklogs.net/coverage/*
+if [ -n "$PUBLISH" ]; then
+  cd ~/redmine/redmine_backlogs
+  BRANCH=`git branch --no-color | awk '/^\*/ { print $2}'`
+  COMMIT=`git log -1 --format=%h`
+  COVERAGE="$GEMSET-$BRANCH-$COMMIT"
+  rm -rf ~/redmine/www/coverage/$GEMSET-$BRANCH-*
+
+  ran=0
+  if [ -e ~/redmine/cuke-$GEMSET.log ]; then
+    ran=`grep scenarios ~/redmine/cuke-$GEMSET.log | wc -l`
+  fi
+  if [ "$ran" = "1" ]; then
+    mkdir "$HOME/redmine/www/coverage/$COVERAGE"
+
+    failed=`grep -E 'scenarios.*(skipped|failed)' ~/redmine/cuke-$GEMSET.log | wc -l`
+
+    if [ "$failed" = "1" ]; then
+      cd ~/redmine/www/coverage/$COVERAGE
+      echo '---' > index.markdown
+      echo 'title: Build failed' >> index.markdown
+      echo 'layout: default' >> index.markdown
+      echo '---' >> index.markdown
+      echo '# Build failed' >> index.markdown
+      echo '' >> index.markdown
+      ruby -e 'while gets; break if $_ =~ /^WARNING/; end; while gets; break if $_ =~ /^[+]-{10}/; puts "    #{$_.strip}  "; end' ~/redmine/cuke-$GEMSET.log >> index.markdown
+
+    else
+      cp -r ~/redmine/$GEMSET/coverage/* "$HOME/redmine/www/coverage/$COVERAGE"
+    fi
+  fi
+
+  cd ~/redmine/www/coverage
+  echo '---' > index.markdown
+  echo 'title: Code coverage' >> index.markdown
+  echo 'layout: default' >> index.markdown
+  echo '---' >> index.markdown
+  echo '# Code coverage' >> index.markdown
+  echo '' >> index.markdown
+  ls -lt | grep ^d | awk '{print "[" $8, $6, $7 "](" $8 ")  "}' >> index.markdown
+
+  chmod a+rwX ~/redmine/www/coverage/*
+
+  git add .
+  git commit -am "coverage update: $COVERAGE"
+  git push
+fi
