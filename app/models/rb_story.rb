@@ -80,7 +80,7 @@ class RbStory < Issue
     end
 
     def self.backlogs_by_sprint(project, sprints, options={})
-        ret = RbStory.backlog(project.id, sprints.map {|s| s.id }, options)
+        ret = RbStory.backlog(options.merge({:project_id => project.id, :sprint_id => sprints.map {|s| s.id }}))
         sprint_of = {}
         ret.each do |backlog|
             sprint_of[backlog.fixed_version_id] ||= []
