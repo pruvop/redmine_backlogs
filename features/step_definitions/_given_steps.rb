@@ -146,11 +146,11 @@ Given /^the (.*) project has the backlogs plugin enabled$/ do |project_id|
   @project.enabled_modules << EnabledModule.new(:name => 'backlogs')
 
   # Configure the story and task trackers
-  @impediment_tracker = (Tracker.find_by_name('Impediment') || Tracker.create!(:name => 'Impediment')).id
   story_tracker = (Tracker.find_by_name('Story') || Tracker.create!(:name => 'Story')).id
   task_tracker = (Tracker.find_by_name('Task') || Tracker.create!(:name => 'Task')).id
 
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge( {:story_trackers => [story_tracker], :task_tracker => task_tracker } )
+  Backlogs.setting[:story_trackers] = [story_tracker]
+  Backlogs.setting[:task_tracker] = task_tracker
 
   # Make sure these trackers are enabled in the project
   @project.update_attributes :tracker_ids => [story_tracker, task_tracker]
@@ -391,7 +391,7 @@ Given /^I have set the content for wiki page (.+) to (.+)$/ do |title, content|
 end
 
 Given /^I have made (.+) the template page for sprint notes/ do |title|
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge({:wiki_template => Wiki.titleize(title)})
+  Backlogs.setting[:wiki_template] = Wiki.titleize(title)
 end
 
 Given /^there are no stories in the project$/ do
@@ -419,5 +419,43 @@ end
 
 Given /^I have configured backlogs plugin to include Saturday and Sunday in burndown$/ do
   Rails.cache.clear
-  Setting.plugin_redmine_backlogs = Setting.plugin_redmine_backlogs.merge({:include_sat_and_sun => true})
+  Backlogs.setting[:include_sat_and_sun] = true
 end
+
+Given /^timelog from taskboard has been enabled$/ do
+  Backlogs.setting[:timelog_from_taskboard] = 'enabled'
+end
+
+Given /^I am a team member of the project and allowed to update remaining hours$/ do
+  role = Role.find(:first, :conditions => "name='Manager'")
+  role.permissions << :view_master_backlog
+  role.permissions << :view_releases
+  role.permissions << :view_taskboards
+  role.permissions << :create_tasks
+  role.permissions << :update_tasks
+  role.permissions << :update_remaining_hours
+  role.save!
+  login_as_team_member
+end
+
+Given /^I am logging time for task (.+)$/ do |subject|
+  issue = Issue.find_by_subject(subject)
+  visit "/issues/#{issue.id}/time_entries"
+  click_link('Log time')
+  page.driver.response.status.should == 200
+end
+
+Given /^I am viewing log time for the (.*) project$/ do |project_id|
+  visit "/projects/#{project_id}/time_entries"
+  click_link('Log time')
+  page.driver.response.status.should == 200
+end
+
+Given /^I set the hours spent to (\d+)$/ do |arg1|
+  fill_in 'time_entry[hours]', :with => arg1
+end
+
+Given /^I set the remaining_hours to (\d+)$/ do |arg1|
+  fill_in 'remaining_hours', :with => arg1
+end
+
