@@ -1,5 +1,6 @@
 --- 
-en: 
+en:
+  assigned_to: Assigned To 
   backlogs_active: active
   backlogs_any: any
   backlogs_card_specification: Label types for card printing

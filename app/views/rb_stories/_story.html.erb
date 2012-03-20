@@ -4,6 +4,10 @@
     <div class="t"><%= issue_link_or_empty(story) %></div>
     <div class="v"><%= id_or_empty(story) %></div>
   </div>
+  <div class="assigned_to editable story_field" fieldtype="select" fieldname="assigned_to" fieldlabel="<%=l(:assigned_to)%>">
+      <div class="t">Assigned To:</div>
+      <div class="v"><%= assignee_name_or_empty(story) %></div>
+    </div>
   <div class="tracker_id editable story_field" fieldtype="select" fieldname="tracker_id" fieldlabel="<%=l(:field_tracker_id)%>">
     <div class="t"><%= h tracker_name_or_empty(story) %></div>
     <div class="v"><%= tracker_id_or_empty(story) %></div>
